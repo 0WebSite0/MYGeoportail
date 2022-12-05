@@ -1,0 +1,140 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Requête attributaire - points géodésiques</title>
+  <link rel="shortcut icon" type="image/x-icon" href="icon.png" />
+  <style>
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    };
+    .esri-ui-corner .esri-component.esri-widget--panel {
+    width: 200px !important;
+};
+  </style>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.25/esri/themes/light/main.css">
+  <script src="https://js.arcgis.com/4.25/"></script>
+  <script>
+
+    require([
+      "esri/config",
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+    ], function(esriConfig, Map, MapView, FeatureLayer) {
+
+      esriConfig.apiKey = "AAPK049e9b15d8814296826457b90850791bNLDIz2W9N2l9h410_EuUH5f6JsKAT-BdgkjWbOlKj50sQMMwX1kFe2GL6XRLJ3eM";
+
+      const map = new Map({
+        basemap: "arcgis-imagery" //Basemap layer service
+      });
+
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-6.98395843492403, 33.85346343976017], //Longitude, latitude
+        zoom: 10
+      });
+
+      // SQL query array
+      const merchichLayerSQL = ["Choisissez une requête", "Signal = 'monopode'",  "Signal = 'mire'", "Signal = 'axe sommet'", "Mission = 191", "Mission = 606"];
+      let whereClause = merchichLayerSQL[0];
+
+      // Add SQL UI
+      const select = document.createElement("select","");
+      select.setAttribute("class", "esri-widget esri-select");
+      select.setAttribute("style", "width: 200px; font-family: 'Avenir Next'; font-size: 1em");
+      merchichLayerSQL.forEach(function(query){
+        let option = document.createElement("option");
+        option.innerHTML = query;
+        option.value = query;
+        select.appendChild(option);
+      });
+
+      view.ui.add(select, "top-right");
+
+       // Listen for changes
+      select.addEventListener('change', (event) => {
+        whereClause = event.target.value;
+
+        queryFeatureLayer(view.extent);
+
+      });
+
+      // Get query layer and set up query
+ const merchichLayer = new FeatureLayer({
+        url: "https://services8.arcgis.com/jKKXM7zEpD4hLPh0/arcgis/rest/services/merchich_wgs84/FeatureServer/0",
+      });
+
+      function queryFeatureLayer(extent) {
+
+        const merchichQuery = {
+         where: whereClause,  // Set by select element
+         spatialRelationship: "intersects", // Relationship operation to apply
+         geometry: extent, // Restricted to visible extent of the map
+         outFields: ["Mission","Signal", "Nom", "X__m_", "Y__m_"], // Attributes to return
+         returnGeometry: true
+        };
+
+        merchichLayer.queryFeatures(merchichQuery)
+
+        .then((results) => {
+
+          console.log("Feature count: " + results.features.length)
+
+          displayResults(results);
+
+        }).catch((error) => {
+          console.log(error.error);
+        });
+
+      }
+
+      function displayResults(results) {
+        // Create a marker
+        
+const symbol = {
+          type: "esriSMS",
+          style: "esriSMSSquare",
+          color: [20, 130, 200, 0.5],
+          size: 1,
+          angle: 0,
+          xoffset: 0,
+          yoffset: 0,
+          outline: {
+            color: "blue",
+            width: .9
+          },
+        };
+
+
+        const popupTemplate = {
+          title: "Point {Nom}",
+          content: "Signal: {Signal} <br> Mission: {Mission} <br> Xmerchich= {X__m_}  <br> Ymerchich= {Y__m_} "
+        };
+
+        // Assign styles and popup to features
+        results.features.map((feature) => {
+          feature.symbol = symbol;
+          feature.popupTemplate = popupTemplate;
+          return feature;
+        });
+
+        // Clear display
+        view.popup.close();
+        view.graphics.removeAll();
+        // Add features to graphics layer
+        view.graphics.addMany(results.features);
+
+      }
+
+    });
+  </script>
+</head>
+<body>
+  <div id="viewDiv"></div>
+</body>
+</html>
